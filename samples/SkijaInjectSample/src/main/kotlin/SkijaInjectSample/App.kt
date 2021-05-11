@@ -15,6 +15,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 fun main(args: Array<String>) {
+    System.setProperty("skiko.renderApi", "SOFTWARE")
     repeat(1) {
         createWindow("window $it")
     }
@@ -108,6 +109,14 @@ class Renderer(
         val picture = pictureRecorder.finishRecordingAsPicture()
         canvas.drawPicture(picture, null, Paint())
         canvas.drawLine(left, top + rectH, left + rectW, top, Paint())
+
+        // ColorModel test
+        val red = Paint().setColor(0xFFFF0000.toInt())
+        val green = Paint().setColor(0xFF00FF00.toInt())
+        val blue = Paint().setColor(0xFF0000FF.toInt())
+        canvas.drawOval(Rect.makeXYWH(20f, 100f, 40f, 40f), red)
+        canvas.drawOval(Rect.makeXYWH(65f, 100f, 40f, 40f), green)
+        canvas.drawOval(Rect.makeXYWH(110f, 100f, 40f, 40f), blue)
 
         layer.needRedraw()
     }
