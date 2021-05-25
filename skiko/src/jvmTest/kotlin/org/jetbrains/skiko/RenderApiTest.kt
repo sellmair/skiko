@@ -25,26 +25,22 @@ internal class RenderApiTest {
     }
 
     @Test
-    fun `default render api test`() {
+    fun `default render api test`() = runBlocking(Dispatchers.Swing) {
         System.clearProperty("skiko.renderApi")
         System.clearProperty("skiko.test.failInitContext")
         val defaultGraphicsApi = SkikoProperties.bestRenderApiForCurrentOS()
         val layer = SkiaLayer()
         assert(layer.renderApi == defaultGraphicsApi)
-        SwingUtilities.invokeLater {
-            layer.dispose()
-        }
+        layer.dispose()
     }
 
     @Test
-    fun `software render api test`() {
+    fun `software render api test`() = runBlocking(Dispatchers.Swing) {
         System.setProperty("skiko.renderApi", "SOFTWARE")
         System.clearProperty("skiko.test.failInitContext")
         val layer = SkiaLayer()
         assert(layer.renderApi == GraphicsApi.SOFTWARE)
-        SwingUtilities.invokeLater {
-            layer.dispose()
-        }
+        layer.dispose()
     }
 
     @Test
