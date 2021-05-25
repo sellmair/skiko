@@ -15,15 +15,12 @@ internal object SkikoProperties {
 
     val fpsLongFramesMillis: Double? by property("skiko.fps.longFrames.millis", default = null)
 
-    val renderApi: GraphicsApi by lazy {
-        val environment = System.getenv("SKIKO_RENDER_API")
-        val property = System.getProperty("skiko.renderApi")
-        if (environment != null) {
-            parseRenderApi(environment)
-        } else {
-            parseRenderApi(property)
+    val renderApi: GraphicsApi
+        get() {
+            val environment = System.getenv("SKIKO_RENDER_API")
+            val property = System.getProperty("skiko.renderApi")
+            return if (environment != null) parseRenderApi(environment) else return parseRenderApi(property)
         }
-    }
 
     private fun parseRenderApi(text: String?): GraphicsApi {
         when(text) {
@@ -41,7 +38,7 @@ internal object SkikoProperties {
         }
     }
 
-    private fun bestRenderApiForCurrentOS(): GraphicsApi {
+    internal fun bestRenderApiForCurrentOS(): GraphicsApi {
         when(hostOs) {
             OS.MacOS -> return GraphicsApi.METAL
             OS.Linux -> return GraphicsApi.OPENGL
@@ -49,19 +46,20 @@ internal object SkikoProperties {
         }
     }
 
-    val fallbackRenderApiQueue : List<GraphicsApi> by lazy {
-        val head = renderApi
-        var renderApiList = mutableListOf<GraphicsApi>()
+    internal val fallbackRenderApiQueue : List<GraphicsApi>
+        get() {
+            val head = renderApi
+            var renderApiList = mutableListOf<GraphicsApi>()
 
-        when (hostOs) {
-            OS.Linux -> renderApiList = mutableListOf(GraphicsApi.OPENGL, GraphicsApi.SOFTWARE)
-            OS.MacOS -> renderApiList = mutableListOf(GraphicsApi.METAL, GraphicsApi.SOFTWARE)
-            OS.Windows -> renderApiList = mutableListOf(GraphicsApi.DIRECT3D, GraphicsApi.OPENGL, GraphicsApi.SOFTWARE)
+            when (hostOs) {
+                OS.Linux -> renderApiList = mutableListOf(GraphicsApi.OPENGL, GraphicsApi.SOFTWARE)
+                OS.MacOS -> renderApiList = mutableListOf(GraphicsApi.METAL, GraphicsApi.SOFTWARE)
+                OS.Windows -> renderApiList = mutableListOf(GraphicsApi.DIRECT3D, GraphicsApi.OPENGL, GraphicsApi.SOFTWARE)
+            }
+            renderApiList.remove(head)
+
+            return listOf(head) + renderApiList
         }
-        renderApiList.remove(head)
-
-        listOf(head) + renderApiList
-    }
 
     private fun property(name: String, default: Boolean) = lazy {
         System.getProperty(name)?.toBoolean() ?: default

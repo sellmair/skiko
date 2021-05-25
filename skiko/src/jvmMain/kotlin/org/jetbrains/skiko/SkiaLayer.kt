@@ -366,7 +366,7 @@ open class SkiaLayer(
         )
     }
 
-    private fun fallbackToNextApi() {
+    internal fun fallbackToNextApi() {
         renderApi = fallbackRenderApiQueue.removeAt(0)
         println("Falling back to $renderApi rendering...")
         contextHandler?.dispose()
