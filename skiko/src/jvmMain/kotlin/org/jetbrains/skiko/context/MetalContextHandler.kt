@@ -13,6 +13,9 @@ internal class MetalContextHandler(layer: SkiaLayer) : ContextHandler(layer) {
         get() = layer.redrawer!! as MetalRedrawer
 
     override fun initContext(): Boolean {
+        if (System.getProperty("skiko.test.failInitContext") == "true") {
+            return false
+        }
         try {
             if (context == null) {
                 context = metalRedrawer.makeContext()

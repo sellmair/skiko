@@ -18,6 +18,9 @@ internal class AngleContextHandler(layer: SkiaLayer) : ContextHandler(layer) {
 
     var device: Long = 0
     override fun initContext(): Boolean {
+        if (System.getProperty("skiko.test.failInitContext") == "true") {
+            return false
+        }
         try {
             if (context == null) {
                 device = angleRedrawer.createDevice()

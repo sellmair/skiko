@@ -12,6 +12,9 @@ import org.jetbrains.skiko.makeGLRenderTarget
 
 internal class OpenGLContextHandler(layer: SkiaLayer) : ContextHandler(layer) {
     override fun initContext(): Boolean {
+        if (System.getProperty("skiko.test.failInitContext") == "true") {
+            return false
+        }
         try {
             if (context == null) {
                 context = makeGLContext()

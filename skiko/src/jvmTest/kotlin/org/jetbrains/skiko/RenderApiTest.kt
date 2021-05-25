@@ -49,8 +49,7 @@ internal class RenderApiTest {
         System.setProperty("skiko.test.failInitContext", "true")
         val window = testWindow()
         window.layer.awaitRedraw()
-        val secondGraphicsApi = SkikoProperties.fallbackRenderApiQueue
-        assert(window.layer.renderApi != secondGraphicsApi[0])
+        assert(window.layer.renderApi == GraphicsApi.SOFTWARE)
         window.dispose()
     }
 }
