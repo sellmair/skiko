@@ -17,77 +17,42 @@ import kotlin.math.sin
 import java.io.File
 import java.nio.file.Files
 import javax.imageio.ImageIO
+import java.awt.event.ComponentAdapter
+import java.awt.event.ComponentEvent
+import java.awt.event.WindowAdapter
+import java.awt.event.WindowEvent
+import java.awt.Point
 
 fun main(args: Array<String>) {
-    repeat(1) {
-        createWindow("window $it")
+    val panel = WindowDockArea()
+    val mainWindow = JFrame("MainWindow").apply {
+        defaultCloseOperation = WindowConstants.EXIT_ON_CLOSE
+        size = Dimension(300, 300)
+        contentPane.add(panel)
     }
+    val skiaWindow = createWindow("SkiaWindow").apply {
+        isVisible = true
+    }
+
+    panel.childWindow = skiaWindow
+    mainWindow.isVisible = true
 }
 
-fun createWindow(title: String) = runBlocking(Dispatchers.Swing) {
-    var mouseX = 0
-    var mouseY = 0
-
+fun createWindow(title: String): SkiaWindow {
     val window = SkiaWindow()
-    window.defaultCloseOperation = WindowConstants.DISPOSE_ON_CLOSE
+    window.defaultCloseOperation = WindowConstants.EXIT_ON_CLOSE
     window.title = title
-
-    // Create menu.
-    val menuBar = JMenuBar()
-    val menu = JMenu("File")
-    menuBar.add(menu)
-
-    val miFullscreenState = JMenuItem("Is fullscreen mode")
-    val ctrlI = KeyStroke.getKeyStroke(KeyEvent.VK_I, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx())
-    miFullscreenState.setAccelerator(ctrlI)
-    miFullscreenState.addActionListener(object : ActionListener {
-        override fun actionPerformed(actionEvent: ActionEvent?) {
-            println("${window.title} is in fullscreen mode: ${window.layer.fullscreen}")
-        }
-    })
-
-    val miToggleFullscreen = JMenuItem("Toggle fullscreen")
-    val ctrlF = KeyStroke.getKeyStroke(KeyEvent.VK_F, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx())
-    miToggleFullscreen.setAccelerator(ctrlF)
-    miToggleFullscreen.addActionListener(object : ActionListener {
-        override fun actionPerformed(actionEvent: ActionEvent?) {
-            window.layer.fullscreen = !window.layer.fullscreen
-        }
-    })
-
-    val defaultScreenshotPath =
-        Files.createTempFile("compose_", ".png").toAbsolutePath().toString()
-    val miTakeScreenshot = JMenuItem("Take screenshot to $defaultScreenshotPath")
-    val ctrlS = KeyStroke.getKeyStroke(KeyEvent.VK_S, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx())
-    miTakeScreenshot.setAccelerator(ctrlS)
-    miTakeScreenshot.addActionListener(object : ActionListener {
-        override fun actionPerformed(actionEvent: ActionEvent?) {
-            val screenshot = window.layer.screenshot()!!
-            GlobalScope.launch(Dispatchers.IO) {
-                val image = screenshot.toBufferedImage()
-                ImageIO.write(image, "png", File(defaultScreenshotPath))
-                println("Saved to $defaultScreenshotPath")
-            }
-        }
-    })
-
-    menu.add(miToggleFullscreen)
-    menu.add(miFullscreenState)
-    menu.add(miTakeScreenshot)
-
-    window.setJMenuBar(menuBar)
 
     val state = State()
     state.text = title
 
-    window.layer.onStateChanged(SkiaLayer.PropertyKind.Renderer) { layer ->
-        println("Changed renderer for $layer: new value is ${layer.renderApi}")
-    }
+    window.setUndecorated(true)
 
+    var mouseX = 0
+    var mouseY = 0
     window.layer.renderer = Renderer(window.layer) {
         renderer, w, h, nanoTime -> displayScene(renderer, w, h, nanoTime, mouseX, mouseY, state)
     }
-
     window.layer.addMouseMotionListener(object : MouseMotionAdapter() {
         override fun mouseMoved(event: MouseEvent) {
             mouseX = event.x
@@ -95,11 +60,81 @@ fun createWindow(title: String) = runBlocking(Dispatchers.Swing) {
         }
     })
 
-    // MANDATORY: set window preferred size before calling pack()
-    window.preferredSize = Dimension(800, 600)
-    window.pack()
-    window.layer.awaitRedraw()
-    window.isVisible = true
+    return window
+}
+
+class WindowDockArea : JPanel() {
+    val root: JFrame?
+        get() = SwingUtilities.getWindowAncestor(this) as JFrame
+
+    var childWindow: SkiaWindow? = null
+        set(value) {
+            value?.setFocusableWindowState(false)
+            value?.setAlwaysOnTop(false)
+            value?.toBack()
+            field = value
+            if (root != null && root!!.isVisible) {
+                syncLocation()
+                syncSize()
+                root?.toBack()
+            }
+        }
+
+    override fun addNotify() {
+        super.addNotify()
+
+        root!!.addComponentListener(object : ComponentAdapter() {
+            override fun componentResized(e: ComponentEvent) = syncSize()
+            override fun componentMoved(e: ComponentEvent) = syncLocation()
+        })
+        root!!.addWindowFocusListener(object : WindowAdapter() {
+            override fun windowGainedFocus(event: WindowEvent) = toTop()
+            override fun windowLostFocus(event: WindowEvent) = toBottom()
+        })
+        root!!.addWindowStateListener(object : WindowAdapter() {
+            override fun windowStateChanged(event: WindowEvent) {
+                val state = root!!.extendedState
+                childWindow?.extendedState = state
+                if (state == JFrame.MAXIMIZED_BOTH) {
+                    syncLocation()
+                    syncSize()
+                }
+            }
+        })
+    }
+
+    private fun syncSize() {
+        val currentSize = size
+        childWindow?.setSize(currentSize.width, currentSize.height)
+        if (childWindow != null) {
+            SwingUtilities.updateComponentTreeUI(childWindow)
+        }
+    }
+
+    private fun syncLocation() {
+        val currentLocation = getLocationOnScreen()
+        childWindow?.location = Point(currentLocation.x, currentLocation.y)
+    }
+
+    private fun toTop() {
+        // вот здесь (и еще в [toBottom()]) предполагается использовать не тот подход что ниже (хотя и он с оговорками работает нормально)
+        // а распольгать окно поверх главного с испльзованием нативных функций:
+        // Windows: https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos
+        // Mac OS: https://developer.apple.com/documentation/appkit/nswindow/1419672-order
+        // Linux: хер его знает, но наверняка есть))
+        childWindow?.setAlwaysOnTop(true)
+        childWindow?.toFront()
+    }
+
+    private fun toBottom() {
+        childWindow?.setAlwaysOnTop(false)
+        childWindow?.toBack()
+        root?.toBack()
+    }
+
+    override fun removeNotify() {
+        super.removeNotify()
+    }
 }
 
 class Renderer(
