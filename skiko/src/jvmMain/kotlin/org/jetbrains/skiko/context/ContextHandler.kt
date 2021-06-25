@@ -58,6 +58,7 @@ internal abstract class ContextHandler(val layer: SkiaLayer) {
     open fun rendererInfo(): String {
         return "GraphicsApi: ${layer.renderApi}\n" +
             "OS: $hostFullName\n" +
+            "System OS DPI scale: ${layer.contentScale}\n" +
             "Java: $javaVendor\n" +
             "Java location: $javaLocation\n"
     }
