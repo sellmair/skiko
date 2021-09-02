@@ -98,7 +98,9 @@ kotlin {
                     extraOpts("-staticLibrary", "libskia.a")
                     extraOpts("-staticLibrary", "libskshaper.a")
                     extraOpts("-staticLibrary", "libskparagraph.a")
+                    extraOpts("-staticLibrary", "libskiko-${targetOs.id}-${targetArch.id}.a")
                     extraOpts("-libraryPath", "$skiaDir/$skiaBinSubdir")
+                    extraOpts("-libraryPath", "$buildDir/lib/main/debug/static/${targetOs.id}")
                 }
             }
         }
@@ -138,6 +140,7 @@ kotlin {
 
 tasks.withType(CInteropProcess::class.java).forEach {
     it.dependsOn(skiaDir)
+    it.dependsOn(tasks.withType(CreateStaticLibrary::class.java))
 }
 
 tasks.withType(JavaCompile::class.java).configureEach {
@@ -190,6 +193,8 @@ tasks.withType(CppCompile::class.java).configureEach {
         *buildType.flags
     ))
     val includeDir = "$projectDir/src/jvmMain/cpp/include"
+    val commonIncludeDir = "$projectDir/src/commonMain/cpp/include"
+    val commonSrcDir = "$projectDir/src/commonMain/cpp/common"
     when (targetOs) {
         OS.MacOS -> {
             compilerArgs.addAll(
@@ -198,6 +203,8 @@ tasks.withType(CppCompile::class.java).configureEach {
                     "-fvisibility-inlines-hidden",
                     "-I$jdkHome/include/darwin",
                     "-I$includeDir",
+                    "-I$commonIncludeDir",
+                    "-I$commonSrcDir",
                     "-DSK_SHAPER_CORETEXT_AVAILABLE",
                     "-DSK_BUILD_FOR_MAC",
                     "-DSK_METAL",
@@ -398,13 +405,21 @@ tasks.withType(LinkSharedLibrary::class.java).configureEach {
 
 extensions.configure<CppLibrary> {
     source.from(
+        fileTree("$projectDir/src/commonMain/cpp/common"),
         fileTree("$projectDir/src/jvmMain/cpp/common"),
         fileTree("$projectDir/src/jvmMain/cpp/${targetOs.id}")
     )
+    // TODO: we'd better make it a separate artifact.
+    if (targetOs == OS.MacOS) {
+        source.from(
+            fileTree("$projectDir/src/macosX64Main/cpp/common")
+        )
+    }
+
 }
 
 library {
-    linkage.addAll(listOf(Linkage.SHARED))
+    linkage.addAll(listOf(Linkage.SHARED, Linkage.STATIC))
     targetMachines.addAll(listOf(machines.macOS.x86_64, machines.linux.x86_64, machines.windows.x86_64))
     baseName.set("skiko-$target")
 

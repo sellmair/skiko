@@ -50,3 +50,14 @@ static inline skia::textlayout::TypefaceFontProvider* __TypefaceFontProvider() {
     return new skia::textlayout::TypefaceFontProvider();
 }
 
+// These are to workaround our inability to pass char* directly
+// The rest use @SymbolName()
+
+long bridge_org_jetbrains_skia_ManagedString__1nMake(char* textStr);
+
+const char* bridge_org_jetbrains_skia_ManagedString__1nToString(long ptr);
+
+void bridge_org_jetbrains_skia_ManagedString__1nInsert(long ptr, int offset, char* s);
+
+void bridge_org_jetbrains_skia_ManagedString__1nAppend(long ptr, char* s);
+

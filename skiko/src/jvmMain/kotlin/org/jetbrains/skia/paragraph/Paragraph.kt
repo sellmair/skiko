@@ -7,7 +7,7 @@ import org.jetbrains.skia.impl.Native
 import org.jetbrains.skia.impl.Stats
 import java.lang.ref.Reference
 
-class Paragraph internal constructor(ptr: Long, text: ManagedString?) : Managed(ptr, _FinalizerHolder.PTR) {
+actual class Paragraph actual internal constructor(ptr: Long, text: ManagedString?) : Managed(ptr, _FinalizerHolder.PTR) {
     companion object {
         @JvmStatic external fun _nGetFinalizer(): Long
         @JvmStatic external fun _nGetMaxWidth(ptr: Long): Float
@@ -47,7 +47,7 @@ class Paragraph internal constructor(ptr: Long, text: ManagedString?) : Managed(
     }
 
     private var _text: ManagedString?
-    override fun close() {
+    actual override fun close() {
         if (_text != null) {
             _text!!.close()
             _text = null
@@ -55,49 +55,49 @@ class Paragraph internal constructor(ptr: Long, text: ManagedString?) : Managed(
         super.close()
     }
 
-    val maxWidth: Float
+    actual val maxWidth: Float
         get() = try {
             Stats.onNativeCall()
             _nGetMaxWidth(_ptr)
         } finally {
             Reference.reachabilityFence(this)
         }
-    val height: Float
+    actual val height: Float
         get() = try {
             Stats.onNativeCall()
             _nGetHeight(_ptr)
         } finally {
             Reference.reachabilityFence(this)
         }
-    val minIntrinsicWidth: Float
+    actual val minIntrinsicWidth: Float
         get() = try {
             Stats.onNativeCall()
             _nGetMinIntrinsicWidth(_ptr)
         } finally {
             Reference.reachabilityFence(this)
         }
-    val maxIntrinsicWidth: Float
+    actual val maxIntrinsicWidth: Float
         get() = try {
             Stats.onNativeCall()
             _nGetMaxIntrinsicWidth(_ptr)
         } finally {
             Reference.reachabilityFence(this)
         }
-    val alphabeticBaseline: Float
+    actual val alphabeticBaseline: Float
         get() = try {
             Stats.onNativeCall()
             _nGetAlphabeticBaseline(_ptr)
         } finally {
             Reference.reachabilityFence(this)
         }
-    val ideographicBaseline: Float
+    actual val ideographicBaseline: Float
         get() = try {
             Stats.onNativeCall()
             _nGetIdeographicBaseline(_ptr)
         } finally {
             Reference.reachabilityFence(this)
         }
-    val longestLine: Float
+    actual val longestLine: Float
         get() = try {
             Stats.onNativeCall()
             _nGetLongestLine(_ptr)
@@ -105,7 +105,7 @@ class Paragraph internal constructor(ptr: Long, text: ManagedString?) : Managed(
             Reference.reachabilityFence(this)
         }
 
-    fun didExceedMaxLines(): Boolean {
+    actual fun didExceedMaxLines(): Boolean {
         return try {
             Stats.onNativeCall()
             _nDidExceedMaxLines(_ptr)
@@ -114,13 +114,13 @@ class Paragraph internal constructor(ptr: Long, text: ManagedString?) : Managed(
         }
     }
 
-    fun layout(width: Float): Paragraph {
+    actual fun layout(width: Float): Paragraph {
         Stats.onNativeCall()
         _nLayout(_ptr, width)
         return this
     }
 
-    fun paint(canvas: Canvas?, x: Float, y: Float): Paragraph {
+    actual fun paint(canvas: Canvas?, x: Float, y: Float): Paragraph {
         return try {
             Stats.onNativeCall()
             _nPaint(_ptr, Native.Companion.getPtr(canvas), x, y)
@@ -134,7 +134,7 @@ class Paragraph internal constructor(ptr: Long, text: ManagedString?) : Managed(
      * Returns a vector of bounding boxes that enclose all text between
      * start and end char indices, including start and excluding end.
      */
-    fun getRectsForRange(
+    actual fun getRectsForRange(
         start: Int,
         end: Int,
         rectHeightMode: RectHeightMode,
@@ -148,7 +148,7 @@ class Paragraph internal constructor(ptr: Long, text: ManagedString?) : Managed(
         }
     }
 
-    val rectsForPlaceholders: Array<org.jetbrains.skia.paragraph.TextBox>
+    actual val rectsForPlaceholders: Array<org.jetbrains.skia.paragraph.TextBox>
         get() = try {
             Stats.onNativeCall()
             _nGetRectsForPlaceholders(_ptr)
@@ -156,7 +156,7 @@ class Paragraph internal constructor(ptr: Long, text: ManagedString?) : Managed(
             Reference.reachabilityFence(this)
         }
 
-    fun getGlyphPositionAtCoordinate(dx: Float, dy: Float): PositionWithAffinity {
+    actual fun getGlyphPositionAtCoordinate(dx: Float, dy: Float): PositionWithAffinity {
         return try {
             Stats.onNativeCall()
             val res = _nGetGlyphPositionAtCoordinate(_ptr, dx, dy)
@@ -169,7 +169,7 @@ class Paragraph internal constructor(ptr: Long, text: ManagedString?) : Managed(
         }
     }
 
-    fun getWordBoundary(offset: Int): IRange {
+    actual fun getWordBoundary(offset: Int): IRange {
         return try {
             Stats.onNativeCall()
             IRange.Companion._makeFromLong(_nGetWordBoundary(_ptr, offset))
@@ -178,7 +178,7 @@ class Paragraph internal constructor(ptr: Long, text: ManagedString?) : Managed(
         }
     }
 
-    val lineMetrics: Array<LineMetrics?>
+    actual val lineMetrics: Array<LineMetrics?>
         get() = try {
             if (_text == null) {
                 arrayOfNulls(0)
@@ -190,7 +190,7 @@ class Paragraph internal constructor(ptr: Long, text: ManagedString?) : Managed(
             Reference.reachabilityFence(this)
             Reference.reachabilityFence(_text)
         }
-    val lineNumber: Long
+    actual val lineNumber: Long
         get() = try {
             Stats.onNativeCall()
             _nGetLineNumber(_ptr)
@@ -198,13 +198,13 @@ class Paragraph internal constructor(ptr: Long, text: ManagedString?) : Managed(
             Reference.reachabilityFence(this)
         }
 
-    fun markDirty(): Paragraph {
+    actual fun markDirty(): Paragraph {
         Stats.onNativeCall()
         _nMarkDirty(_ptr)
         return this
     }
 
-    val unresolvedGlyphsCount: Int
+    actual val unresolvedGlyphsCount: Int
         get() = try {
             Stats.onNativeCall()
             _nGetUnresolvedGlyphsCount(_ptr)
@@ -212,7 +212,7 @@ class Paragraph internal constructor(ptr: Long, text: ManagedString?) : Managed(
             Reference.reachabilityFence(this)
         }
 
-    fun updateAlignment(alignment: Alignment): Paragraph {
+    actual fun updateAlignment(alignment: Alignment): Paragraph {
         Stats.onNativeCall()
         _nUpdateAlignment(_ptr, alignment.ordinal)
         return this
@@ -224,7 +224,7 @@ class Paragraph internal constructor(ptr: Long, text: ManagedString?) : Managed(
     //     // TODO: update _text
     //     return this;
     // }
-    fun updateFontSize(from: Int, to: Int, size: Float): Paragraph {
+    actual fun updateFontSize(from: Int, to: Int, size: Float): Paragraph {
         return try {
             if (_text != null) {
                 Stats.onNativeCall()
@@ -242,7 +242,7 @@ class Paragraph internal constructor(ptr: Long, text: ManagedString?) : Managed(
         }
     }
 
-    fun updateForegroundPaint(from: Int, to: Int, paint: Paint?): Paragraph {
+    actual fun updateForegroundPaint(from: Int, to: Int, paint: Paint?): Paragraph {
         return try {
             if (_text != null) {
                 Stats.onNativeCall()
@@ -261,7 +261,7 @@ class Paragraph internal constructor(ptr: Long, text: ManagedString?) : Managed(
         }
     }
 
-    fun updateBackgroundPaint(from: Int, to: Int, paint: Paint?): Paragraph {
+    actual fun updateBackgroundPaint(from: Int, to: Int, paint: Paint?): Paragraph {
         return try {
             if (_text != null) {
                 Stats.onNativeCall()
