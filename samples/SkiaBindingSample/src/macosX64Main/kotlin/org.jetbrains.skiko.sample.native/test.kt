@@ -1,3 +1,4 @@
+package org.jetbrains.skiko.sample.native
 import org.jetbrains.skia.*
 
 fun main() {
