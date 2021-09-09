@@ -105,6 +105,9 @@ val skiaBinSubdir = "out/${buildType.id}-${targetOs.id}-${targetArch.id}"
 val Project.supportNative: Boolean
    get() = properties.get("skiko.native.enabled") == "true"
 
+val Project.supportWasm: Boolean
+   get() = properties.get("skiko.wasm.enabled") == "true"
+
 kotlin {
     jvm {
         compilations.all {
@@ -112,17 +115,20 @@ kotlin {
         }
     }
 
-    js(IR) {
-        browser() {
-            testTask {
-                testLogging.showStandardStreams = true
-                dependsOn(project.tasks.named("wasmCompile"))
-                useKarma() {
-                    useChromeHeadless()
+
+    if (supportWasm) {
+        js(IR) {
+            browser() {
+                testTask {
+                    testLogging.showStandardStreams = true
+                    dependsOn(project.tasks.named("wasmCompile"))
+                    useKarma() {
+                        useChromeHeadless()
+                    }
                 }
             }
+            binaries.executable()
         }
-        binaries.executable()
     }
 
     if (supportNative) {
@@ -175,10 +181,12 @@ kotlin {
             }
         }
 
-        val jsTest by getting {
-            dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.0")
-                implementation(kotlin("test-js"))
+        if (supportWasm) {
+            val jsTest by getting {
+                dependencies {
+                    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.0")
+                    implementation(kotlin("test-js"))
+                }
             }
         }
 
@@ -337,6 +345,7 @@ project.tasks.register<Exec>("objcCompile") {
 }
 
 project.tasks.register<Exec>("wasmCompile") {
+    onlyIf { project.supportWasm } 
     dependsOn(skiaWasmDir)
     val inputDir = "$projectDir/src/jsMain/cpp"
     val outDir = "$buildDir/wasm"
