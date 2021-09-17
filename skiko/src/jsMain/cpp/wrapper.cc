@@ -67,7 +67,7 @@ bool createSurface(int width, int height) {
     return true;
 }
 
-SKIKO_EXPORT KNativePointer `org_jetbrains_skiko_MakeOnScreenGLSurface`(KNativePointer dContext, int width, int height) {
+SKIKO_EXPORT KNativePointer org_jetbrains_skiko_MakeOnScreenGLSurface(KNativePointer dContext, int width, int height) {
     // WebGL should already be clearing the color and stencil buffers, but do it again here to
     // ensure Skia receives them in the expected state.
     emscripten_glBindFramebuffer(GL_FRAMEBUFFER, 0);
