@@ -11,6 +11,7 @@
 #include <GLES3/gl3.h>
 #include "webgl/webgl1.h"
 #include "types.h"
+#include "common.h"
 #include <stdexcept>
 
 
@@ -66,14 +67,14 @@ bool createSurface(int width, int height) {
     return true;
 }
 
-sk_sp<SkSurface> MakeOnScreenGLSurface(sk_sp<GrDirectContext> dContext, int width, int height) {
+SKIKO_EXPORT KNativePointer `org_jetbrains_skiko_MakeOnScreenGLSurface`(KNativePointer dContext, int width, int height) {
     // WebGL should already be clearing the color and stencil buffers, but do it again here to
     // ensure Skia receives them in the expected state.
     emscripten_glBindFramebuffer(GL_FRAMEBUFFER, 0);
     emscripten_glClearColor(0, 0, 0, 0);
     emscripten_glClearStencil(0);
     emscripten_glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-    dContext->resetContext(kRenderTarget_GrGLBackendState | kMisc_GrGLBackendState);
+    //dContext->resetContext(kRenderTarget_GrGLBackendState | kMisc_GrGLBackendState);
 
     // The on-screen canvas is FBO 0. Wrap it in a Skia render target so Skia can render to it.
     GrGLFramebufferInfo info;
@@ -89,10 +90,10 @@ sk_sp<SkSurface> MakeOnScreenGLSurface(sk_sp<GrDirectContext> dContext, int widt
     GrBackendRenderTarget target(width, height, sampleCnt, stencil, info);
 
 
-    sk_sp<SkSurface> surface(SkSurface::MakeFromBackendRenderTarget(dContext.get(), target,
+    sk_sp<SkSurface> surface(SkSurface::MakeFromBackendRenderTarget(reinterpret_cast<GrRecordingContext *>(dContext), target,
         kBottomLeft_GrSurfaceOrigin, kRGBA_8888_SkColorType, nullptr, nullptr));
 
-    return surface;
+    return reinterpret_cast<KNativePointer>(surface.release());
 }
 
 EMSCRIPTEN_WEBGL_CONTEXT_HANDLE createContext(std::string id) {
@@ -109,7 +110,7 @@ EMSCRIPTEN_WEBGL_CONTEXT_HANDLE createContext(std::string id) {
  * Sets the given WebGL context to be "current" and then creates a GrDirectContext from that
  * context.
  */
-static KNativePointer MakeGrContext(EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context)
+SKIKO_EXPORT KNativePointer org_jetbrains_skiko_MakeGrContext(EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context)
 {
     EMSCRIPTEN_RESULT r = emscripten_webgl_make_context_current(context);
     if (r < 0) {
@@ -126,8 +127,6 @@ static KNativePointer MakeGrContext(EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context)
 
 EMSCRIPTEN_BINDINGS(Skiko) {
     function("ping", &ping);
-    function("MakeGrContext", &MakeGrContext, allow_raw_pointer<KNativePointer>());
     function("createContext", &createContext);
-    function("MakeOnScreenGLSurface", &MakeOnScreenGLSurface);
 };
 
