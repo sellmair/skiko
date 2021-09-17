@@ -10,6 +10,9 @@
 #include "src/gpu/gl/GrGLDefines.h"
 #include <GLES3/gl3.h>
 #include "webgl/webgl1.h"
+#include "types.h"
+#include <stdexcept>
+
 
 using namespace emscripten;
 
@@ -108,18 +111,19 @@ EMSCRIPTEN_WEBGL_CONTEXT_HANDLE createContext(std::string id) {
  * Sets the given WebGL context to be "current" and then creates a GrDirectContext from that
  * context.
  */
-static sk_sp<GrDirectContext> MakeGrContext(EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context)
+static KInt MakeGrContext(EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context)
 {
     EMSCRIPTEN_RESULT r = emscripten_webgl_make_context_current(context);
     if (r < 0) {
+        // TODO (shagen): discuss with teammates what we actually going to do in this case
         printf("failed to make webgl context current %d\n", r);
-        return nullptr;
+        throw std::runtime_error("failed to make webgl context current");
+//        return nullptr;
     }
-    // setup GrDirectContext
     auto interface = GrGLMakeNativeInterface();
-    // setup contexts
     sk_sp<GrDirectContext> dContext(GrDirectContext::MakeGL(interface));
-    return dContext;
+
+    return reinterpret_cast<KInt>(dContext.release());
 }
 
 EMSCRIPTEN_BINDINGS(Skiko) {
