@@ -66,8 +66,7 @@ bool createSurface(int width, int height) {
     return true;
 }
 
-sk_sp<SkSurface> MakeOnScreenGLSurface(sk_sp<GrDirectContext> dContext, int width, int height,
-                                       sk_sp<SkColorSpace> colorSpace) {
+sk_sp<SkSurface> MakeOnScreenGLSurface(sk_sp<GrDirectContext> dContext, int width, int height) {
     // WebGL should already be clearing the color and stencil buffers, but do it again here to
     // ensure Skia receives them in the expected state.
     emscripten_glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -86,13 +85,12 @@ sk_sp<SkSurface> MakeOnScreenGLSurface(sk_sp<GrDirectContext> dContext, int widt
     GrGLint stencil;
     emscripten_glGetIntegerv(GL_STENCIL_BITS, &stencil);
 
-    const auto colorSettings = ColorSettings(colorSpace);
-    info.fFormat = colorSettings.pixFormat;
+    info.fFormat = GR_GL_RGBA8;
     GrBackendRenderTarget target(width, height, sampleCnt, stencil, info);
 
 
     sk_sp<SkSurface> surface(SkSurface::MakeFromBackendRenderTarget(dContext.get(), target,
-        kBottomLeft_GrSurfaceOrigin, colorSettings.colorType, colorSpace, nullptr));
+        kBottomLeft_GrSurfaceOrigin, kRGBA_8888_SkColorType, nullptr, nullptr));
 
     return surface;
 }
