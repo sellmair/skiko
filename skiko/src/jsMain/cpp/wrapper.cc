@@ -109,7 +109,7 @@ EMSCRIPTEN_WEBGL_CONTEXT_HANDLE createContext(std::string id) {
  * Sets the given WebGL context to be "current" and then creates a GrDirectContext from that
  * context.
  */
-static KInt MakeGrContext(EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context)
+static KNativePointer MakeGrContext(EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context)
 {
     EMSCRIPTEN_RESULT r = emscripten_webgl_make_context_current(context);
     if (r < 0) {
@@ -121,12 +121,12 @@ static KInt MakeGrContext(EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context)
     auto interface = GrGLMakeNativeInterface();
     sk_sp<GrDirectContext> dContext(GrDirectContext::MakeGL(interface));
 
-    return reinterpret_cast<KInt>(dContext.release());
+    return reinterpret_cast<KNativePointer>(dContext.release());
 }
 
 EMSCRIPTEN_BINDINGS(Skiko) {
     function("ping", &ping);
-    function("MakeGrContext", &MakeGrContext);
+    function("MakeGrContext", &MakeGrContext, allow_raw_pointer<KNativePointer>());
     function("createContext", &createContext);
     function("MakeOnScreenGLSurface", &MakeOnScreenGLSurface);
 };
