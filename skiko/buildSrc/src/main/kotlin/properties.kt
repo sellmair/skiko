@@ -5,7 +5,8 @@ enum class OS(val id: String, val clangFlags: Array<String>) {
     Linux("linux", arrayOf()),
     Windows("windows", arrayOf()),
     MacOS("macos", arrayOf("-mmacosx-version-min=10.13")),
-    Wasm("wasm", arrayOf())
+    Wasm("wasm", arrayOf()),
+    Android("android", arrayOf())
     ;
 
     val isWindows

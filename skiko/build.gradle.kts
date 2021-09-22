@@ -61,6 +61,20 @@ val skiaWasmZip = run {
     }.map { zipFile }
 }
 
+val skiaAndroidZip = run {
+    val arch = Arch.X64
+    val release = skiko.skiaReleaseFor(OS.Android, arch)
+    val zipName = "$release.zip"
+    val zipFile = skiko.dependenciesDir.resolve("skia/${zipName.substringAfterLast('/')}")
+    tasks.register("downloadSkiaAndroid", Download::class) {
+        onlyIf { skiko.skiaDir == null && !zipFile.exists() }
+        inputs.property("skia.release.for.android.${arch.id}", release)
+        src("https://github.com/JetBrains/skia-pack/releases/download/$zipName")
+        dest(zipFile)
+        onlyIfModified(true)
+    }.map { zipFile }
+}
+
 fun AbstractCopyTask.configureSkiaCopy(targetDir: File) {
     into(targetDir)
 }
@@ -101,6 +115,24 @@ val skiaWasmDir = run {
     }
 }
 
+val skiaAndroidDir = run {
+    if (skiko.skiaDir != null) {
+        tasks.register("skiaAndroidDir", DefaultTask::class) {
+            // dummy task to simplify usage of the resulting provider (see `else` branch)
+            // if a file provider is not created from a task provider,
+            // then it cannot be used instead of a task in `dependsOn` clauses of other tasks.
+            // e.g. the resulting `skiaDir` could not be used in `dependsOn` of CppCompile configuration
+            enabled = false
+        }.map { skiko.skiaDir!! }
+    } else {
+        val targetDir = skiko.dependenciesDir.resolve("skia/skia-android")
+        tasks.register("unzipSkiaAndroid", Copy::class) {
+            from(skiaAndroidZip.map { zipTree(it) })
+            configureSkiaCopy(targetDir)
+        }.map { targetDir }
+    }
+}
+
 val skiaBinSubdir = "out/${buildType.id}-${targetOs.id}-${targetArch.id}"
 
 val Project.supportNative: Boolean
@@ -108,6 +140,9 @@ val Project.supportNative: Boolean
 
 val Project.supportWasm: Boolean
     get() = properties.get("skiko.wasm.enabled") == "true"
+
+val Project.supportAndroid: Boolean
+    get() = properties.get("skiko.android.enabled") == "true"
 
 kotlin {
     jvm {
@@ -127,6 +162,10 @@ kotlin {
             }
         }
         binaries.executable()
+    }
+
+    if (supportAndroid) {
+
     }
 
     if (supportNative) {
