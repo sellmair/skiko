@@ -33,6 +33,9 @@ abstract class CrossCompileTask : org.gradle.api.tasks.Exec() {
     @get:Input
     abstract val flags: ListProperty<String>
 
+    @get:Input
+    abstract val outputFile: Property<String>
+
     @get:PathSensitive(PathSensitivity.NAME_ONLY)
     @get:InputDirectory
     abstract val inputDir: DirectoryProperty
@@ -55,7 +58,10 @@ abstract class CrossCompileTask : org.gradle.api.tasks.Exec() {
                     bt.flags + bt.clangFlags).asIterable()
         }
         argumentProviders.add {
-            inputDir.get().asFileTree.files.map { it.absolutePath }
+            inputDir.get().asFileTree.files.filter { it.name.endsWith(".cc") }.map { it.absolutePath }
+        }
+        argumentProviders.add {
+            listOf("-o", outputFile.get())
         }
         workingDir = outputDir.get().asFile.absoluteFile.resolve("cc/${target_os.get().id}_${target_arch.get().id}")
         workingDir.mkdirs()
@@ -86,30 +92,32 @@ tasks.register<CrossCompileTask>("androidX64CrossCompile") {
     dependsOn(skiaCrossUnzip)
     inputDir.set(projectDir.resolve("src/jvmMain/cpp/common/"))
     outputDir.set(buildDir)
+    outputFile.set("libskiko.so")
 
     val skia = skiko.dependenciesDir.resolve("skia/skia-${targetSuffix(cross_os, cross_arch)}").absolutePath
     // TODO: FIX!
     val toolchain = File("${System.getProperty("user.home")}/Library/Android/sdk/ndk/23.0.7599858/toolchains/llvm/prebuilt/darwin-x86_64")
-    compiler.set(toolchain.resolve("bin/clang++").absolutePath)
+    // TODO: properly select.
+    compiler.set(toolchain.resolve("bin/x86_64-linux-android29-clang++").absolutePath)
     flags.set(listOf(
-        "-isysroot", toolchain.resolve("sysroot").absolutePath,
-        "--sysroot=${toolchain.resolve("sysroot").absolutePath}",
-        // TODO: properly compute.
-        "-target", "x86_64-linux-android",
         "-DSK_BUILD_FOR_ANDROID",
         "-fno-rtti",
         "-fno-exceptions",
         "-fvisibility=hidden",
         "-shared",
         "-fPIC",
-        "-static-libstdc++",
-        "-static-libgcc",
-        "-L", toolchain.resolve("/usr/lib/x86_64-linux-android").absolutePath,
         "-I", projectDir.resolve("src/jvmMain/cpp/include").absolutePath,
         *skiaPreprocessorFlags(skia))
     )
     target_os.set(cross_os)
     target_arch.set(cross_arch)
+
+    // TODO: ugly, make it configure itself.
+    outputs.files(buildDir.resolve("cc/${targetSuffix(cross_os, cross_arch)}/libskiko.so"))
+
+    doLast {
+        println("Produced file ${this.outputs.files.files}")
+    }
 }
 
 buildscript {
