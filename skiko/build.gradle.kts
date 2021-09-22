@@ -40,6 +40,9 @@ abstract class CrossCompileTask : org.gradle.api.tasks.Exec() {
     @get:InputDirectory
     abstract val inputDir: DirectoryProperty
 
+    @get:InputDirectory
+    abstract val skiaDir: DirectoryProperty
+
     @get:OutputDirectory
     abstract val outputDir: DirectoryProperty
 
@@ -62,6 +65,9 @@ abstract class CrossCompileTask : org.gradle.api.tasks.Exec() {
         }
         argumentProviders.add {
             listOf("-o", outputFile.get())
+        }
+        argumentProviders.add {
+            skiaDir.get().asFileTree.files.filter { it.name.endsWith(".a") }.map { it.absolutePath }
         }
         workingDir = outputDir.get().asFile.absoluteFile.resolve("cc/${target_os.get().id}_${target_arch.get().id}")
         workingDir.mkdirs()
@@ -92,6 +98,7 @@ tasks.register<CrossCompileTask>("androidX64CrossCompile") {
     dependsOn(skiaCrossUnzip)
     inputDir.set(projectDir.resolve("src/jvmMain/cpp/common/"))
     outputDir.set(buildDir)
+    skiaDir.set(skiaCrossUnzip.get().destinationDir.resolve("out/${cross_build.id}-${cross_os.id}-${cross_arch.id}"))
     outputFile.set("libskiko.so")
 
     val skia = skiko.dependenciesDir.resolve("skia/skia-${targetSuffix(cross_os, cross_arch)}").absolutePath
@@ -116,7 +123,7 @@ tasks.register<CrossCompileTask>("androidX64CrossCompile") {
     outputs.files(buildDir.resolve("cc/${targetSuffix(cross_os, cross_arch)}/libskiko.so"))
 
     doLast {
-        println("Produced file ${this.outputs.files.files}")
+        println("Produced files ${this.outputs.files.files}")
     }
 }
 
