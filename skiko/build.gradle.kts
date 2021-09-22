@@ -13,6 +13,101 @@ plugins {
 
 val coroutinesVersion = "1.5.0"
 
+fun targetSuffix(os: OS, arch: Arch): String {
+    return "${os.id}_${arch.id}"
+}
+
+abstract class CrossCompileTask : org.gradle.api.tasks.Exec() {
+    @get:Input
+    abstract val compiler: Property<String>
+
+    @get:Input
+    abstract val target_os: Property<OS>
+
+    @get:Input
+    abstract val target_arch: Property<Arch>
+
+    @get:Input
+    abstract val build_type: Property<SkiaBuildType>
+
+    @get:Input
+    abstract val flags: ListProperty<String>
+
+    @get:PathSensitive(PathSensitivity.NAME_ONLY)
+    @get:InputDirectory
+    abstract val inputDir: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    init {
+        compiler.convention("clang")
+        build_type.convention(SkiaBuildType.RELEASE)
+        target_os.set(findTargetOs())
+        target_arch.set(findTargetArch())
+    }
+
+    override fun exec() {
+        executable = compiler.get()
+        argumentProviders.add {
+            val bt = build_type.get()
+            (flags.get() + /* target_arch.get().clangFlags + */
+                    bt.flags + bt.clangFlags).asIterable()
+        }
+        argumentProviders.add {
+            inputDir.get().asFileTree.files.map { it.absolutePath }
+        }
+        workingDir = outputDir.get().asFile.absoluteFile.resolve("cc/${target_os.get().id}_${target_arch.get().id}")
+        workingDir.mkdirs()
+        super.exec()
+    }
+}
+
+// TODO: make configurable.
+val cross_os = OS.Android
+val cross_arch = Arch.X64
+val cross_build = SkiaBuildType.RELEASE
+
+val skiaCrossDownload = tasks.register<Download>("skiaCrossDownload") {
+    val release = skiko.skiaReleaseFor(cross_os, cross_arch, cross_build)
+    val out = skiko.dependenciesDir.resolve("skia/skia-${targetSuffix(cross_os, cross_arch)}.zip")
+    src("https://github.com/JetBrains/skia-pack/releases/download/$release.zip")
+    dest(out.absolutePath)
+    onlyIfModified(true)
+}
+
+val skiaCrossUnzip = tasks.register("skiaCrossUnzip", Copy::class) {
+    dependsOn(skiaCrossDownload)
+    from(zipTree(skiaCrossDownload.get().outputFiles.single()))
+    destinationDir = skiko.dependenciesDir.resolve("skia/skia-${targetSuffix(cross_os, cross_arch)}")
+}
+
+tasks.register<CrossCompileTask>("androidX64CrossCompile") {
+    dependsOn(skiaCrossUnzip)
+    inputDir.set(projectDir.resolve("src/jvmMain/cpp/common/"))
+    outputDir.set(buildDir)
+
+    val skia = skiko.dependenciesDir.resolve("skia/skia-${targetSuffix(cross_os, cross_arch)}").absolutePath
+    // TODO: FIX!
+    val toolchain = File("${System.getProperty("user.home")}/Library/Android/sdk/ndk/23.0.7599858/toolchains/llvm/prebuilt/darwin-x86_64")
+    compiler.set(toolchain.resolve("bin/clang++").absolutePath)
+    flags.set(listOf(
+        "-isysroot", toolchain.resolve("sysroot").absolutePath,
+        // TODO: properly compute.
+        "-target", "x86_64-linux-android",
+        "-DSK_BUILD_FOR_ANDROID",
+        "-fno-rtti",
+        "-fno-exceptions",
+        "-fvisibility=hidden",
+        "-shared",
+        "-fPIC",
+        "-I", projectDir.resolve("src/jvmMain/cpp/include").absolutePath,
+        *skiaPreprocessorFlags(skia))
+    )
+    target_os.set(cross_os)
+    target_arch.set(cross_arch)
+}
+
 buildscript {
     dependencies {
         classpath("org.kohsuke:github-api:1.116")
@@ -36,12 +131,12 @@ repositories {
 }
 
 val skiaZip = run {
-    val zipName = skiko.skiaReleaseFor(targetOs, targetArch) + ".zip"
+    val zipName = skiko.skiaReleaseFor(targetOs, targetArch, buildType) + ".zip"
     val zipFile = skiko.dependenciesDir.resolve("skia/${zipName.substringAfterLast('/')}")
 
     tasks.register("downloadSkia", Download::class) {
         onlyIf { skiko.skiaDir == null && !zipFile.exists() }
-        inputs.property("skia.release.for.target.os", skiko.skiaReleaseFor(targetOs, targetArch))
+        inputs.property("skia.release.for.target.os", skiko.skiaReleaseFor(targetOs, targetArch, buildType))
         src("https://github.com/JetBrains/skia-pack/releases/download/$zipName")
         dest(zipFile)
         onlyIfModified(true)
@@ -49,26 +144,12 @@ val skiaZip = run {
 }
 
 val skiaWasmZip = run {
-    val release = skiko.skiaReleaseFor(OS.Wasm, Arch.Wasm)
+    val release = skiko.skiaReleaseFor(OS.Wasm, Arch.Wasm, buildType)
     val zipName = "$release.zip"
     val zipFile = skiko.dependenciesDir.resolve("skia/${zipName.substringAfterLast('/')}")
     tasks.register("downloadSkiaWasm", Download::class) {
         onlyIf { skiko.skiaDir == null && !zipFile.exists() }
         inputs.property("skia.release.for.wasm", release)
-        src("https://github.com/JetBrains/skia-pack/releases/download/$zipName")
-        dest(zipFile)
-        onlyIfModified(true)
-    }.map { zipFile }
-}
-
-val skiaAndroidZip = run {
-    val arch = Arch.X64
-    val release = skiko.skiaReleaseFor(OS.Android, arch)
-    val zipName = "$release.zip"
-    val zipFile = skiko.dependenciesDir.resolve("skia/${zipName.substringAfterLast('/')}")
-    tasks.register("downloadSkiaAndroid", Download::class) {
-        onlyIf { skiko.skiaDir == null && !zipFile.exists() }
-        inputs.property("skia.release.for.android.${arch.id}", release)
         src("https://github.com/JetBrains/skia-pack/releases/download/$zipName")
         dest(zipFile)
         onlyIfModified(true)
@@ -115,24 +196,6 @@ val skiaWasmDir = run {
     }
 }
 
-val skiaAndroidDir = run {
-    if (skiko.skiaDir != null) {
-        tasks.register("skiaAndroidDir", DefaultTask::class) {
-            // dummy task to simplify usage of the resulting provider (see `else` branch)
-            // if a file provider is not created from a task provider,
-            // then it cannot be used instead of a task in `dependsOn` clauses of other tasks.
-            // e.g. the resulting `skiaDir` could not be used in `dependsOn` of CppCompile configuration
-            enabled = false
-        }.map { skiko.skiaDir!! }
-    } else {
-        val targetDir = skiko.dependenciesDir.resolve("skia/skia-android")
-        tasks.register("unzipSkiaAndroid", Copy::class) {
-            from(skiaAndroidZip.map { zipTree(it) })
-            configureSkiaCopy(targetDir)
-        }.map { targetDir }
-    }
-}
-
 val skiaBinSubdir = "out/${buildType.id}-${targetOs.id}-${targetArch.id}"
 
 val Project.supportNative: Boolean
@@ -162,10 +225,6 @@ kotlin {
             }
         }
         binaries.executable()
-    }
-
-    if (supportAndroid) {
-
     }
 
     if (supportNative) {
@@ -343,7 +402,7 @@ tasks.withType(CppCompile::class.java).configureEach {
                     )
             )
         }
-        OS.Wasm -> throw GradleException("Should not reach here")
+        OS.Android, OS.Wasm -> throw GradleException("Should not reach here")
     }
 }
 
@@ -471,7 +530,6 @@ project.tasks.register<Exec>("nativeBridgesCompile") {
         *targetOs.clangFlags,
         *buildType.clangFlags,
         "-c",
-        "-DPROVIDE_JNI_TYPES",
         "-DSK_SHAPER_CORETEXT_AVAILABLE",
         "-DSK_BUILD_FOR_MAC",
         "-DSK_METAL",

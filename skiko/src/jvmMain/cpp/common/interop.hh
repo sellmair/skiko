@@ -360,3 +360,8 @@ inline T jlongToPtr(jlong ptr) {
 
 void deleteJBytes(void* addr, void*);
 
+#ifdef SK_BUILD_FOR_ANDROID
+#define SKIKO_JNI_VERSION JNI_VERSION_1_6
+#else
+#define SKIKO_JNI_VERSION JNI_VERSION_1_8
+#endif
