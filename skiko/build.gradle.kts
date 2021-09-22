@@ -123,7 +123,7 @@ tasks.register<CrossCompileTask>("androidX64CrossCompile") {
     outputs.files(buildDir.resolve("cc/${targetSuffix(cross_os, cross_arch)}/libskiko.so"))
 
     doLast {
-        println("Produced files ${this.outputs.files.files}")
+        println("Produced file ${this.outputs.files.files.single {it.name.endsWith(".so")} } ")
     }
 }
 
