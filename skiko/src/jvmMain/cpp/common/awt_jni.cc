@@ -1,17 +1,21 @@
 #include <cstdint>
-#ifndef SK_BUILD_FOR_ANDROID
+#include <jni.h>
+#ifdef SK_BUILD_FOR_ANDROID
+#include <stdlib.h>
+#else
 #include <jawt_md.h>
 #include "jni_helpers.h"
 #endif
 
+#ifndef SK_BUILD_FOR_ANDROID
 extern "C" jboolean Skiko_GetAWT(JNIEnv *env, JAWT *awt);
-
+#endif
 extern "C"
 {
     JNIEXPORT jlong JNICALL Java_org_jetbrains_skiko_AWTKt_getAWT(JNIEnv *env, jobject obj)
     {
     #ifdef SK_BUILD_FOR_ANDROID
-        assert(false);
+        abort();
         return 0;
     #else
         JAWT *awt = new JAWT();
@@ -32,8 +36,8 @@ extern "C"
     JNIEXPORT jlong JNICALL Java_org_jetbrains_skiko_AWTKt_getDrawingSurface(JNIEnv *env, jobject obj, jlong awtPtr, jobject layer)
     {
     #ifdef SK_BUILD_FOR_ANDROID
-            assert(false);
-            return 0;
+        abort();
+        return 0;
     #else
         JAWT *awt = fromJavaPointer<JAWT *>(awtPtr);
         JAWT_DrawingSurface *ds = awt->GetDrawingSurface(env, layer);
@@ -43,8 +47,8 @@ extern "C"
 
     JNIEXPORT void JNICALL Java_org_jetbrains_skiko_AWTKt_freeDrawingSurface(JNIEnv *env, jobject obj, jlong awtPtr, jlong drawingSurfacePtr)
     {
-    ifdef SK_BUILD_FOR_ANDROID
-        assert(false);
+    #ifdef SK_BUILD_FOR_ANDROID
+        abort();
         return;
     #else
         JAWT *awt = fromJavaPointer<JAWT *>(awtPtr);
@@ -56,7 +60,7 @@ extern "C"
     JNIEXPORT jint JNICALL Java_org_jetbrains_skiko_AWTKt_lockDrawingSurface(JNIEnv *env, jobject obj, jlong drawingSurfacePtr)
     {
     #ifdef SK_BUILD_FOR_ANDROID
-         assert(false);
+         abort();
          return 0;
     #else
         JAWT_DrawingSurface *ds = fromJavaPointer<JAWT_DrawingSurface *>(drawingSurfacePtr);
@@ -67,7 +71,7 @@ extern "C"
     JNIEXPORT void JNICALL Java_org_jetbrains_skiko_AWTKt_unlockDrawingSurface(JNIEnv *env, jobject obj, jlong drawingSurfacePtr)
     {
     #ifdef SK_BUILD_FOR_ANDROID
-        assert(false);
+        abort();
         return;
     #else
         JAWT_DrawingSurface *ds = fromJavaPointer<JAWT_DrawingSurface *>(drawingSurfacePtr);
@@ -78,7 +82,7 @@ extern "C"
     JNIEXPORT jlong JNICALL Java_org_jetbrains_skiko_AWTKt_getDrawingSurfaceInfo(JNIEnv *env, jobject obj, jlong drawingSurfacePtr)
     {
      #ifdef SK_BUILD_FOR_ANDROID
-         assert(false);
+         abort();
          return 0;
      #else
         JAWT_DrawingSurface *ds = fromJavaPointer<JAWT_DrawingSurface *>(drawingSurfacePtr);
@@ -90,7 +94,7 @@ extern "C"
     JNIEXPORT void JNICALL Java_org_jetbrains_skiko_AWTKt_freeDrawingSurfaceInfo(JNIEnv *env, jobject obj, jlong drawingSurfacePtr, jlong drawingSurfaceInfoPtr)
     {
     #ifdef SK_BUILD_FOR_ANDROID
-         assert(false);
+         abort();
          return;
     #else
         JAWT_DrawingSurface *ds = fromJavaPointer<JAWT_DrawingSurface *>(drawingSurfacePtr);
@@ -102,7 +106,7 @@ extern "C"
     JNIEXPORT jlong JNICALL Java_org_jetbrains_skiko_AWTKt_getPlatformInfo(JNIEnv *env, jobject obj, jlong drawingSurfaceInfoPtr)
     {
     #ifdef SK_BUILD_FOR_ANDROID
-        assert(false);
+        abort();
         return 0;
     #else
         JAWT_DrawingSurfaceInfo *dsi = fromJavaPointer<JAWT_DrawingSurfaceInfo *>(drawingSurfaceInfoPtr);
@@ -110,4 +114,3 @@ extern "C"
     #endif
     }
 }
-#endif // !SK_BUILD_FOR_ANDROID

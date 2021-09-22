@@ -93,6 +93,7 @@ tasks.register<CrossCompileTask>("androidX64CrossCompile") {
     compiler.set(toolchain.resolve("bin/clang++").absolutePath)
     flags.set(listOf(
         "-isysroot", toolchain.resolve("sysroot").absolutePath,
+        "--sysroot=${toolchain.resolve("sysroot").absolutePath}",
         // TODO: properly compute.
         "-target", "x86_64-linux-android",
         "-DSK_BUILD_FOR_ANDROID",
@@ -101,6 +102,9 @@ tasks.register<CrossCompileTask>("androidX64CrossCompile") {
         "-fvisibility=hidden",
         "-shared",
         "-fPIC",
+        "-static-libstdc++",
+        "-static-libgcc",
+        "-L", toolchain.resolve("/usr/lib/x86_64-linux-android").absolutePath,
         "-I", projectDir.resolve("src/jvmMain/cpp/include").absolutePath,
         *skiaPreprocessorFlags(skia))
     )
