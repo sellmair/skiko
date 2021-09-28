@@ -90,6 +90,9 @@ class SkikoProperties(private val myProject: Project) {
     val buildType: SkiaBuildType
         get() = if (myProject.findProperty("skiko.debug") == "true") SkiaBuildType.DEBUG else SkiaBuildType.RELEASE
 
+    val includeTestHelpers: Boolean
+        get() = !isRelease
+
     fun skiaReleaseFor(os: OS, arch: Arch): String {
         val target = "${os.id}-${arch.id}"
         val tag = myProject.property("dependencies.skia.$target") as String
