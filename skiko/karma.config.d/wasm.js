@@ -7,8 +7,9 @@ config.browserConsoleLogOptions.level = "debug";
 const basePath = config.basePath;
 const projectPath = path.resolve(basePath, "..", "..", "..", "..", "..");
 const wasmPath = path.resolve(projectPath, "build", "wasm")
+const wasmTestHelpersPath = path.resolve(projectPath, "build", "wasm-test-helpers")
 
-const debug = message => console.log(`[karma-config] ${message}`); 
+const debug = message => console.log(`[karma-config] ${message}`);
 
 debug(`karma basePath: ${basePath}`);
 debug(`karma wasmPath: ${wasmPath}`);
@@ -19,5 +20,7 @@ config.proxies = {
 
 config.files = [
     path.resolve(wasmPath, "skiko.js"),
+    path.resolve(wasmTestHelpersPath, "skiko-test-helpers.js"),
     {pattern: path.resolve(wasmPath, "skiko.wasm"), included: false, served: true, watched: false},
+    {pattern: path.resolve(wasmTestHelpersPath, "skiko-test-helpers.wasm"), included: false, served: true, watched: false},
 ].concat(config.files);

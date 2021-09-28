@@ -2,6 +2,7 @@ import de.undercouch.gradle.tasks.download.Download
 import org.gradle.crypto.checksum.Checksum
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile
+import org.jetbrains.kotlin.gradle.tasks.Kotlin2JsCompile
 
 plugins {
     kotlin("multiplatform") version "1.5.10"
@@ -121,6 +122,7 @@ kotlin {
             testTask {
                 testLogging.showStandardStreams = true
                 dependsOn(project.tasks.named("wasmCompile"))
+                dependsOn(project.tasks.named("wasmCompileTestHelpers"))
                 useKarma {
                     useChromeHeadless()
                 }
@@ -148,6 +150,10 @@ kotlin {
                         )
                     }
                 }
+                compilations["test"].kotlinOptions.freeCompilerArgs += listOf(
+                    "-include-binary",
+                    "$buildDir/nativeTestHelpersBridges/static/$targetString/skiko-native-test-helpers-bridges-$targetString.a"
+                )
             }
             else -> null
         }
@@ -242,8 +248,14 @@ fun skiaPreprocessorFlags(skiaDir: String): Array<String> {
     ).toTypedArray()
 }
 
+val compileTestHelpersJni = project.tasks.register<CppCompile>("compileTestHelpersJni") {
+    source(fileTree(projectDir.resolve("src/jvmTest/cpp")))
+    targetPlatform
+}
+
 // See https://docs.gradle.org/current/userguide/cpp_library_plugin.html.
 tasks.withType(CppCompile::class.java).configureEach {
+    println("CppCompile $name")
     // Prefer 'java.home' system property to simplify overriding from Intellij.
     // When used from command-line, it is effectively equal to JAVA_HOME.
     if (JavaVersion.current() < JavaVersion.VERSION_11) {
@@ -354,9 +366,7 @@ val wasmCompile = project.tasks.register<Exec>("wasmCompile") {
         val srcs = mutableListOf(
             "$projectDir/src/jsMain/cpp",
             "$projectDir/src/commonMain/cpp"
-        ).apply {
-            if (skiko.includeTestHelpers) add("$projectDir/src/commonTest/cpp/TestHelpers.cc")
-        }.findAllFiles(".cc").toTypedArray()
+        ).findAllFiles(".cc").toTypedArray()
         val outJs = "$outDir/skiko.js"
         val outWasm = "$outDir/skiko.wasm"
         workingDir = File(outDir)
@@ -396,9 +406,59 @@ val wasmCompile = project.tasks.register<Exec>("wasmCompile") {
         finalizedBy(replaceSymbolsInSkikoJsOutput)
 }
 
+val wasmCompileTestHelpers = project.tasks.register<Exec>("wasmCompileTestHelpers") {
+//    dependsOn(skiaWasmDir)
+    val skiaDir = skiaWasmDir.get().absolutePath
+    val outDir = "$buildDir/wasm-test-helpers"
+    val srcs = mutableListOf(
+        "$projectDir/src/commonTest/cpp"
+    ).findAllFiles(".cc").toTypedArray()
+
+    val outJs = "$outDir/skiko-test-helpers.js"
+    val outWasm = "$outDir/skiko-test-helpers.wasm"
+    workingDir = File(outDir)
+
+    if (supportWasm) {
+        commandLine = listOf(
+            "emcc",
+            *buildType.clangFlags,
+            *Arch.Wasm.clangFlags,
+            "-I$projectDir/src/commonMain/cpp",
+            *skiaPreprocessorFlags(skiaDir),
+            "-o", outJs,
+            *srcs
+        )
+//        argumentProviders.add(CommandLineArgumentProvider {
+//            val skiaBinDir = "$skiaDir/out/${buildType.id}-wasm-wasm"
+//            // We must compute this list after Skia unpacking task has finished.
+//            listOf(skiaBinDir).findAllFiles(".a")
+//        })
+    } else {
+        // Create dummy files anyway.
+        commandLine = listOf(
+            "touch",
+            outJs,
+            outWasm
+        )
+    }
+    file(outDir).mkdirs()
+    inputs.files(srcs)
+    outputs.files(outJs, outWasm)
+
+    finalizedBy(replaceSymbolsInSkikoJsOutput2)
+}
+
 val replaceSymbolsInSkikoJsOutput by project.tasks.registering {
     doLast {
         val skikoJsFile = buildDir.resolve("wasm/skiko.js")
+        val replacedContent = skikoJsFile.readText().replace("_org_jetbrains", "org_jetbrains")
+        skikoJsFile.writeText(replacedContent)
+    }
+}
+
+val replaceSymbolsInSkikoJsOutput2 by project.tasks.registering {
+    doLast {
+        val skikoJsFile = buildDir.resolve("wasm-test-helpers/skiko-test-helpers.js")
         val replacedContent = skikoJsFile.readText().replace("_org_jetbrains", "org_jetbrains")
         skikoJsFile.writeText(replacedContent)
     }
@@ -430,9 +490,44 @@ project.tasks.register<Exec>("nativeBridgesCompile") {
         "$projectDir/src/nativeMain/cpp/common",
         "$projectDir/src/commonMain/cpp"
     ).apply {
-        if (skiko.includeTestHelpers) add("$projectDir/src/commonTest/cpp/TestHelpers.cc")
+        //if (skiko.includeTestHelpers) add("$projectDir/src/commonTest/cpp/TestHelpers.cc")
     }
     val outDir = "$buildDir/nativeBridges/obj/$target"
+    val srcs = inputDirs
+        .findAllFiles(".cc")
+        .toTypedArray()
+    val outs = srcs
+        .map { it.substringAfterLast("/") }
+        .map { File(it).nameWithoutExtension }
+        .map { "$outDir/$it.o" }
+        .toTypedArray()
+
+    workingDir = File(outDir)
+    commandLine = listOf(
+        "clang++",
+        *targetArch.clangFlags,
+        *targetOs.clangFlags,
+        *buildType.clangFlags,
+        "-c",
+        "-DPROVIDE_JNI_TYPES",
+        "-DSK_SHAPER_CORETEXT_AVAILABLE",
+        "-DSK_BUILD_FOR_MAC",
+        "-DSK_METAL",
+        "-I$projectDir/src/commonMain/cpp",
+        *skiaPreprocessorFlags(skiaDir.get().absolutePath),
+        *srcs
+    )
+    file(outDir).mkdirs()
+    inputs.files(srcs)
+    outputs.files(outs)
+}
+
+project.tasks.register<Exec>("nativeTestHelpersBridgesCompile") {
+    dependsOn(skiaDir)
+    val inputDirs = mutableListOf(
+        "$projectDir/src/commonTest/cpp"
+    )
+    val outDir = "$buildDir/nativeTestHelpersBridges/obj/$target"
     val srcs = inputDirs
         .findAllFiles(".cc")
         .toTypedArray()
@@ -471,6 +566,27 @@ project.tasks.register<Exec>("nativeBridgesLink") {
         .map { it.absolutePath }
         .toTypedArray()
     val staticLib = "$outDir/skiko-native-bridges-$target.a"
+    workingDir = File(outDir)
+    commandLine = listOf(
+        "libtool",
+        "-static",
+        "-o",
+        staticLib,
+        *srcs
+    )
+    file(outDir).mkdirs()
+    outputs.files(staticLib)
+}
+
+project.tasks.register<Exec>("nativeTestHelpersBridgesLink") {
+    dependsOn(project.tasks.getByName("nativeTestHelpersBridgesCompile"))
+    inputs.files(project.tasks.getByName("nativeTestHelpersBridgesCompile").outputs)
+
+    val outDir = "$buildDir/nativeTestHelpersBridges/static/$target"
+    val srcs = inputs.files.files
+        .map { it.absolutePath }
+        .toTypedArray()
+    val staticLib = "$outDir/skiko-native-test-helpers-bridges-$target.a"
     workingDir = File(outDir)
     commandLine = listOf(
         "libtool",
@@ -889,15 +1005,22 @@ publishing {
 }
 
 afterEvaluate {
-    tasks.withType<KotlinCompile>().configureEach {
+    tasks.withType<KotlinCompile>().configureEach { // this one is actually for KotlinJvmCompile
         dependsOn(generateVersion)
         source(generatedKotlin)
 
         if (name == "compileTestKotlinJvm") {
             kotlinOptions.freeCompilerArgs += "-Xopt-in=kotlin.RequiresOptIn"
         }
+    }
+    tasks.withType<KotlinNativeCompile>().configureEach {
+        dependsOn(generateVersion)
+        source(generatedKotlin)
         if (supportNative) {
             dependsOn(tasks.getByName("nativeBridgesLink"))
+        }
+        if (name.contains("test", ignoreCase = true)) {
+            dependsOn(tasks.getByName("nativeTestHelpersBridgesLink"))
         }
     }
 }
