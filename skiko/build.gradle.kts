@@ -390,6 +390,16 @@ val wasmCompile = project.tasks.register<Exec>("wasmCompile") {
         file(outDir).mkdirs()
         inputs.files(srcs + listOf(skikoJsPrefix))
         outputs.files(outJs, outWasm)
+
+        finalizedBy(replaceSymbolsInSkikoJsOutput)
+}
+
+val replaceSymbolsInSkikoJsOutput by project.tasks.registering {
+    doLast {
+        val skikoJsFile = buildDir.resolve("wasm/skiko.js")
+        val replacedContent = skikoJsFile.readText().replace("_org_jetbrains", "org_jetbrains")
+        skikoJsFile.writeText(replacedContent)
+    }
 }
 
 val generateVersion = project.tasks.register("generateVersion") {
